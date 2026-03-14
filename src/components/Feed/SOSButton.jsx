@@ -31,7 +31,7 @@ const SOSButton = () => {
             setTimeout(() => setStep("idle"), 5000);
           }
         },
-        (err) => {
+        () => {
           alert("GPS Required for SOS!");
           setStep("idle");
         }
