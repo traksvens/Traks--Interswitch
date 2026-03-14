@@ -1,4 +1,5 @@
 import { db } from "./firebase";
+import { sendSOSEmail } from "./db";
 import {
   collection,
   addDoc,
@@ -8,15 +9,43 @@ import {
 } from "firebase/firestore";
 
 export const triggerSOS = async (user, location) => {
+  const hasValidCoordinates =
+    typeof location?.lat === "number" && typeof location?.lng === "number";
+
+  if (!user?.uid || !hasValidCoordinates) {
+    console.error("SOS Error: Missing required user or location payload.");
+    return false;
+  }
+
   try {
-    await addDoc(collection(db, "sos_alerts"), {
+    const alertRef = await addDoc(collection(db, "sos_alerts"), {
       reporterId: user.uid,
-      reporterName: user.displayName, // Always real name for SOS
-      location: location, // { lat, lng }
+      reporterName: user.displayName ?? "Anonymous User",
+      location,
       status: "Active",
       timestamp: serverTimestamp(),
       resolvedAt: null,
+      emailStatus: "pending",
     });
+
+    try {
+      const result = await sendSOSEmail({
+        reporterId: user.uid,
+        reporterName: user.displayName ?? "Anonymous User",
+        location,
+      });
+
+      await updateDoc(alertRef, {
+        emailStatus: result.delivered ? "sent" : "skipped",
+      });
+    } catch (emailError) {
+      console.error("SOS Email Error:", emailError);
+      await updateDoc(alertRef, {
+        emailStatus: "failed",
+        emailError: emailError.message,
+      });
+    }
+
     return true;
   } catch (error) {
     console.error("SOS Error:", error);

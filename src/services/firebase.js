@@ -5,13 +5,8 @@ import {
   signInWithPopup,
   signOut,
 } from "firebase/auth";
-import {
-  getFirestore,
-  doc,
-  setDoc,
-  getDoc,
-  serverTimestamp,
-} from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
+import { upsertUserProfile } from "./db";
 
 // PASTE YOUR FIREBASE CONFIG OBJECT HERE
 const firebaseConfig = {
@@ -34,20 +29,7 @@ export const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
 
-    // Check if user exists in Firestore, if not, create the skeleton
-    const userRef = doc(db, "users", user.uid);
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
-      await setDoc(userRef, {
-        displayName: user.displayName,
-        email: user.email,
-        photoURL: user.photoURL,
-        isVerified: false, // <--- THE GATE KEEPER
-        joinedAt: serverTimestamp(),
-        bvnSimulation: "12345678901", // Simulating a default BVN for the hackathon
-      });
-    }
+    await upsertUserProfile(user);
   } catch (error) {
     console.error("Error signing in", error);
   }
